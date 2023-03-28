@@ -84,7 +84,8 @@ fun main() {
     fun dependantSubFlows() {
         data class Demand(val id: Int)
         data class Inventory(val id: Int) {
-            fun getInventoryAsync(inventoryId: Int) = Flowable.range(10 * inventoryId, 2).map { Demand(it) }.subscribeOn(Schedulers.io())
+            fun getInventoryAsync(inventoryId: Int) =
+                Flowable.range(10 * inventoryId, 2).map { Demand(it) }.subscribeOn(Schedulers.io())
 
         }
 
@@ -98,7 +99,8 @@ fun main() {
 
         inventorySource
             .flatMap { inventoryItem ->
-                    inventoryItem.getInventoryAsync(inventoryItem.id).map { demand -> "Item $inventoryItem has demand $demand" }
+                inventoryItem.getInventoryAsync(inventoryItem.id)
+                    .map { demand -> "Item $inventoryItem has demand $demand" }
             }.blockingSubscribe { println(it) }
 
     }
@@ -116,7 +118,7 @@ fun main() {
         service.apiCall()
             .flatMap { value -> service.anotherApiCall(value) }
             .flatMap { next -> service.finalCall(next) }
-            .blockingSubscribe { println(it)  }
+            .blockingSubscribe { println(it) }
     }
 
     fun nonDependant() {
@@ -164,24 +166,27 @@ fun main() {
             .subscribe { x: Int? -> println(x) }
     }
 
-    fun customObservable() {
-        fun createCustomObservable() = Observable.create { subscriber ->
-            printThreadInformation("running observable")
-            for (i in 1..50) {
-                subscriber.onNext("value $i")
-            }
-
-            subscriber.onComplete()
+    fun createCustomObservable(): Observable<String> = Observable.create { subscriber ->
+        printThreadInformation("running observable")
+        for (i in 1..50) {
+            subscriber.onNext("value $i")
+            println(i)
         }
 
-        fun createCustomAsyncObservable() = Observable.create { subscriber ->
-            printThreadInformation("running observable")
-            for (i in 1..50) {
-                subscriber.onNext("value $i")
-            }
+        subscriber.onComplete()
+    }
 
-            subscriber.onComplete()
-        }.subscribeOn(Schedulers.io())
+    fun createCustomAsyncObservable(): Observable<String> = Observable.create { subscriber ->
+        printThreadInformation("running observable")
+        for (i in 1..50) {
+            subscriber.onNext("value $i")
+            println(i)
+        }
+
+        subscriber.onComplete()
+    }.subscribeOn(Schedulers.io())
+
+    fun customObservable() {
 
         val asyncObservable = createCustomAsyncObservable()
         asyncObservable.subscribe(::println)
@@ -192,6 +197,24 @@ fun main() {
 
     }
 
+    fun usingOperators() {
+        val async = createCustomAsyncObservable()
+
+        async
+            .skip(9)
+            .take(5)
+            .map { "onNext -> $it" }
+            .blockingSubscribe(::println)
+
+
+
+
+        createCustomObservable()
+            .skip(9)
+            .take(5)
+            .map { "onNext -> $it" }
+            .blockingSubscribe(::println)
+    }
 
     publishExample()
     notConcurrentFlow()
@@ -202,6 +225,7 @@ fun main() {
     nonDependant()
     deferredDependant()
     customObservable()
+    usingOperators()
 
 }
 
